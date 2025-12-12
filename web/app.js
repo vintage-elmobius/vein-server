@@ -1,51 +1,63 @@
+/* ============================
+   Vein Server Dashboard (API v1)
+   ============================ */
+
+/* ----------------------------
+   API endpoint definitions
+---------------------------- */
+
 const endpoints = [
-  { label: "Server summary", path: "/api/server" },
-  { label: "Game state", path: "/api/game" },
-  { label: "Players", path: "/api/players" },
-  { label: "Player inventory", path: "/api/players/inventory" },
-  { label: "World objects", path: "/api/objects" },
-  { label: "Events / logs", path: "/api/events" },
+  {
+    label: "Server Status",
+    path: "/status",
+    description: "Server uptime and online players",
+  },
+  {
+    label: "Players (list)",
+    path: "/players",
+    description: "List of player Steam IDs",
+  },
+  {
+    label: "World Time",
+    path: "/time",
+    description: "Current server time",
+  },
+  {
+    label: "Weather",
+    path: "/weather",
+    description: "Current weather conditions",
+  },
 ];
 
+/* ----------------------------
+   DOM references
+---------------------------- */
+
 const outputEl = document.getElementById("output");
-const baseUrlEl = document.getElementById("baseUrl");
-const authTokenEl = document.getElementById("authToken");
 const endpointList = document.getElementById("endpointList");
 const endpointTemplate = document.getElementById("endpointTemplate");
-const activePathEl = document.getElementById("activePath");
-const timestampEl = document.getElementById("timestamp");
+const baseUrlEl = document.getElementById("baseUrl");
 const refreshRateEl = document.getElementById("refreshRate");
 const statusEl = document.getElementById("connectionStatus");
+const activePathEl = document.getElementById("activePath");
+const timestampEl = document.getElementById("timestamp");
+const customPathInput = document.getElementById("customPath");
+const customButton = document.getElementById("customButton");
+const pingButton = document.getElementById("pingButton");
+
 let refreshHandle = null;
 let lastPath = null;
 
-const savePreferences = () => {
-  const prefs = {
-    baseUrl: baseUrlEl.value,
-    token: authTokenEl.value,
-    refreshRate: refreshRateEl.value,
-  };
-  localStorage.setItem("vein-dashboard-preferences", JSON.stringify(prefs));
-};
-
-const loadPreferences = () => {
-  const raw = localStorage.getItem("vein-dashboard-preferences");
-  if (!raw) return;
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed.baseUrl) baseUrlEl.value = parsed.baseUrl;
-    if (parsed.token) authTokenEl.value = parsed.token;
-    if (parsed.refreshRate) refreshRateEl.value = parsed.refreshRate;
-  } catch (err) {
-    console.warn("Unable to parse saved preferences", err);
-  }
-};
+/* ----------------------------
+   Utilities
+---------------------------- */
 
 const joinUrl = (base, path) => {
-  const trimmedBase = base.replace(/\/$/, "");
-  const cleanedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${trimmedBase}${cleanedPath}`;
+  const trimmed = base.replace(/\/$/, "");
+  return `${trimmed}${path.startsWith("/") ? path : `/${path}`}`;
 };
+
+const formatJson = (data) => JSON.stringify(data, null, 2);
 
 const renderOutput = (content) => {
   outputEl.textContent = content;
@@ -53,31 +65,48 @@ const renderOutput = (content) => {
 
 const setStatus = (text, variant = "idle") => {
   statusEl.textContent = text;
-  statusEl.classList.remove("idle", "ok", "error");
-  statusEl.classList.add(variant);
+  statusEl.className = variant;
 };
 
-const formatJson = (data) => JSON.stringify(data, null, 2);
+const savePreferences = () => {
+  localStorage.setItem(
+    "vein-dashboard",
+    JSON.stringify({
+      baseUrl: baseUrlEl.value,
+      refreshRate: refreshRateEl.value,
+    })
+  );
+};
+
+const loadPreferences = () => {
+  const raw = localStorage.getItem("vein-dashboard");
+  if (!raw) return;
+  try {
+    const prefs = JSON.parse(raw);
+    if (prefs.baseUrl) baseUrlEl.value = prefs.baseUrl;
+    if (prefs.refreshRate) refreshRateEl.value = prefs.refreshRate;
+  } catch {
+    /* ignore */
+  }
+};
+
+/* ----------------------------
+   Core fetch logic
+---------------------------- */
 
 const handleResponse = async (response) => {
-  const contentType = response.headers.get("content-type") || "";
   const text = await response.text();
-  if (contentType.includes("application/json")) {
-    try {
-      const json = JSON.parse(text);
-      return formatJson(json);
-    } catch (err) {
-      return text;
-    }
+  try {
+    return formatJson(JSON.parse(text));
+  } catch {
+    return text;
   }
-  return text;
 };
 
 const fetchPath = async (path) => {
   const baseUrl = baseUrlEl.value.trim();
   if (!baseUrl) {
     setStatus("Base URL required", "error");
-    renderOutput("Please provide a base URL for the API to request data.");
     return;
   }
 
@@ -88,79 +117,81 @@ const fetchPath = async (path) => {
   setStatus("Requesting", "idle");
 
   try {
-    const headers = {};
-    if (authTokenEl.value) {
-      headers.Authorization = authTokenEl.value;
-    }
-
-    const response = await fetch(url, { headers });
-    const text = await handleResponse(response);
+    const response = await fetch(url);
+    const content = await handleResponse(response);
 
     if (!response.ok) {
-      setStatus(`Error ${response.status}`, "error");
+      setStatus(`HTTP ${response.status}`, "error");
     } else {
       setStatus("Connected", "ok");
     }
 
-    renderOutput(text || "<empty response>");
+    renderOutput(content || "<empty>");
     timestampEl.textContent = new Date().toLocaleString();
     lastPath = path;
     savePreferences();
   } catch (err) {
     setStatus("Network error", "error");
-    renderOutput(`${err}`);
+    renderOutput(String(err));
     timestampEl.textContent = new Date().toLocaleString();
   }
 };
 
+/* ----------------------------
+   Rendering
+---------------------------- */
+
 const renderEndpoints = () => {
   const fragment = document.createDocumentFragment();
+
   endpoints.forEach((endpoint) => {
     const item = endpointTemplate.content.cloneNode(true);
     const button = item.querySelector("button");
     const label = item.querySelector(".label");
-    const path = item.querySelector(".path");
-    button.dataset.path = endpoint.path;
+    const pathEl = item.querySelector(".path");
+
     label.textContent = endpoint.label;
-    path.textContent = endpoint.path;
-    button.addEventListener("click", () => fetchPath(endpoint.path));
+    pathEl.textContent = endpoint.path;
+    button.onclick = () => fetchPath(endpoint.path);
+
     fragment.appendChild(item);
   });
+
   endpointList.replaceChildren(fragment);
 };
 
+/* ----------------------------
+   Custom & helper actions
+---------------------------- */
+
 const bindCustomRequest = () => {
-  const input = document.getElementById("customPath");
-  const button = document.getElementById("customButton");
-  button.addEventListener("click", () => {
-    const value = input.value.trim();
+  customButton.onclick = () => {
+    const value = customPathInput.value.trim();
     if (!value) return;
     fetchPath(value.startsWith("/") ? value : `/${value}`);
-  });
+  };
 };
 
 const bindPing = () => {
-  const pingButton = document.getElementById("pingButton");
-  pingButton.addEventListener("click", () => {
-    const defaultUrl = baseUrlEl.value.trim() || window.location.origin;
-    baseUrlEl.value = defaultUrl;
-    fetchPath("/");
-    activePathEl.textContent = `Ping: ${defaultUrl}`;
-  });
+  pingButton.onclick = () => {
+    baseUrlEl.value = window.location.origin;
+    fetchPath("/status");
+  };
 };
 
 const watchRefresh = () => {
-  refreshRateEl.addEventListener("change", () => {
+  refreshRateEl.onchange = () => {
     savePreferences();
-    if (refreshHandle) {
-      clearInterval(refreshHandle);
-      refreshHandle = null;
-    }
+    if (refreshHandle) clearInterval(refreshHandle);
     const interval = Number(refreshRateEl.value);
     if (!interval || !lastPath) return;
     refreshHandle = setInterval(() => fetchPath(lastPath), interval * 1000);
-  });
+  };
 };
+
+/* ----------------------------
+   Initialization
+---------------------------- */
 
 const init = () => {
   loadPreferences();
@@ -169,13 +200,12 @@ const init = () => {
   bindPing();
   watchRefresh();
 
-  // Always default to same-origin NGINX proxy
+  // Default to same-origin proxy (/api)
   if (!baseUrlEl.value.trim()) {
-  baseUrlEl.value = window.location.origin;
-}
+    baseUrlEl.value = `${window.location.origin}/api`;
+  }
 
-fetchPath(endpoints[0].path);
-
+  fetchPath("/status");
 };
 
 init();
