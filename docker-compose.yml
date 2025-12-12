@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   vein:
-    image: elmobius/vein-server:latest
+    image: ghcr.io/vintage-elmobius/vein-server:latest
     container_name: vein-server
     restart: unless-stopped
     
