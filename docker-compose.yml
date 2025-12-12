@@ -35,13 +35,8 @@ services:
   vein-ui:
     container_name: vein-ui
     restart: unless-stopped
-
-    build:
-      context: .
-      dockerfile: nginx.Dockerfile
-
+    image: ghcr.io/vintage-elmobius/vein-ui:wip
     ports:
       - "8081:8081"
-
     depends_on:
       - vein-server
