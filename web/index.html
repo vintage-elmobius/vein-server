@@ -1,28 +1,158 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Vein Server Dashboard</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Vein Server Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-    <h1>Vein Server Status</h1>
+  <header class="header">
+    <div class="title">
+      <h1>Vein Server Dashboard</h1>
+      <div class="subtitle">
+        <span id="connectionStatus" class="pill idle">Loading…</span>
+        <span class="muted">Last update:</span>
+        <span id="lastUpdated" class="mono">--</span>
+      </div>
+    </div>
 
-    <div id="status-box" class="box">
+    <div class="controls">
+      <label class="control">
+        Refresh
+        <select id="refreshRate">
+          <option value="0">Off</option>
+          <option value="2">2s</option>
+          <option value="5" selected>5s</option>
+          <option value="10">10s</option>
+          <option value="30">30s</option>
+        </select>
+      </label>
+
+      <button id="refreshNow" class="btn">Refresh now</button>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="card">
+      <div class="card-head">
         <h2>Status</h2>
-        <pre id="status-output">Loading...</pre>
-    </div>
+      </div>
+      <div class="card-body">
+        <div class="kv">
+          <div class="k">Uptime</div>
+          <div class="v mono" id="uptime">--</div>
 
-    <div id="players-box" class="box">
-        <h2>Online Players</h2>
-        <pre id="players-output">Loading...</pre>
-    </div>
+          <div class="k">Online Players</div>
+          <div class="v mono" id="playerCount">--</div>
 
-    <div id="weather-box" class="box">
+          <div class="k">Server Time</div>
+          <div class="v mono" id="serverTime">--</div>
+        </div>
+
+        <details class="details">
+          <summary>Raw /status JSON</summary>
+          <pre id="statusRaw" class="pre">Loading…</pre>
+        </details>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
         <h2>Weather</h2>
-        <pre id="weather-output">Loading...</pre>
-    </div>
+      </div>
+      <div class="card-body">
+        <div class="weather">
+          <div class="weather-row">
+            <div class="weather-item">
+              <div class="label">Temp</div>
+              <div class="value mono" id="wxTemp">--</div>
+            </div>
+            <div class="weather-item">
+              <div class="label">Wind</div>
+              <div class="value mono" id="wxWind">--</div>
+            </div>
+          </div>
 
-    <script src="app.js"></script>
+          <div class="weather-row">
+            <div class="weather-item">
+              <div class="label">Clouds</div>
+              <div class="value mono" id="wxClouds">--</div>
+            </div>
+            <div class="weather-item">
+              <div class="label">Humidity</div>
+              <div class="value mono" id="wxHumidity">--</div>
+            </div>
+          </div>
+
+          <div class="weather-row">
+            <div class="weather-item">
+              <div class="label">Precip</div>
+              <div class="value mono" id="wxPrecip">--</div>
+            </div>
+            <div class="weather-item">
+              <div class="label">Pressure</div>
+              <div class="value mono" id="wxPressure">--</div>
+            </div>
+          </div>
+
+          <div class="weather-row">
+            <div class="weather-item">
+              <div class="label">Fog</div>
+              <div class="value mono" id="wxFog">--</div>
+            </div>
+            <div class="weather-item">
+              <div class="label">Raw</div>
+              <div class="value mono"><a class="link" href="#" id="wxToggle">show</a></div>
+            </div>
+          </div>
+
+          <pre id="weatherRaw" class="pre hidden">Loading…</pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="card span-2">
+      <div class="card-head">
+        <h2>Online Players</h2>
+        <div class="muted" id="playersHint">Character names and inventories load per-player via /characters/:id</div>
+      </div>
+      <div class="card-body">
+        <div class="table-wrap">
+          <table class="table" id="playersTable">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>SteamID</th>
+                <th>Status</th>
+                <th>Connected</th>
+                <th>Character</th>
+                <th>Character ID</th>
+                <th>Inventory Summary</th>
+              </tr>
+            </thead>
+            <tbody id="playersTbody">
+              <tr>
+                <td colspan="7" class="muted">Loading…</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <details class="details">
+          <summary>Raw character payloads (cached)</summary>
+          <pre id="charactersRaw" class="pre">Loading…</pre>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="muted">
+      API base: <span class="mono" id="apiBase">/api</span>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
 </body>
 </html>
