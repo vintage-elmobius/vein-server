@@ -169,15 +169,13 @@ const init = () => {
   bindPing();
   watchRefresh();
 
-  // Kick off an initial request when a base URL is provided; otherwise prompt for configuration.
-  if (baseUrlEl.value.trim()) {
-    fetchPath(endpoints[0].path);
-  } else {
-    setStatus("Awaiting base URL", "idle");
-    renderOutput("Enter the base API URL above, then choose an endpoint to begin.");
-    activePathEl.textContent = "Not connected";
-    timestampEl.textContent = "--";
-  }
+  // Always default to same-origin NGINX proxy
+  if (!baseUrlEl.value.trim()) {
+  baseUrlEl.value = window.location.origin;
+}
+
+fetchPath(endpoints[0].path);
+
 };
 
 init();
