@@ -31,8 +31,8 @@ services:
 
 
     ports:
-      - "7777:7777/udp"
-      - "27015:27015/udp"
+      - "7788:7788/udp"
+      - "27055:27055/udp"
       - "8443:8443" # Dashboard (HTTP)  
 
   vein-ui:
