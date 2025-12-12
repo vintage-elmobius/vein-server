@@ -28,24 +28,30 @@ services:
       BIND_ADDR: "0.0.0.0"
       VAC_ENABLED: "0"
 
-      # HTTP API (internal only)
+      # HTTP API (loopback only)
       DASHBOARD_ENABLED: "true"
       DASHBOARD_PORT: "8443"
 
     volumes:
-      - /srv/games/vein-data:/opt/server
+      - vein-data:/opt/server
 
     ports:
       - "7777:7777/udp"
       - "27015:27015/udp"
 
   vein-ui:
-    build:
-      context: .
-      dockerfile: nginx.Dockerfile
+    image: ghcr.io/vintage-elmobius/vein-ui:wip
     container_name: vein-ui
     restart: unless-stopped
+
+    # 🔑 THIS IS THE SIDE-CAR MAGIC
+    network_mode: "container:vein-server"
+
     depends_on:
       - vein-server
+
     ports:
       - "8081:8081"
+
+volumes:
+  vein-data:
