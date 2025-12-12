@@ -35,14 +35,6 @@ services:
       - "27055:27055/udp"
       - "8443:8443" # Dashboard (HTTP)  
 
-  vein-ui:
-    image: ghcr.io/vintage-elmobius/vein-ui:latest
-    container_name: vein-ui
-    depends_on:
-      - vein
-    ports:
-      - "8081:8081"
-    restart: unless-stopped
 
   vein-server-backup:
 
