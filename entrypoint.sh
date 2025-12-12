@@ -68,6 +68,7 @@ SuperAdminSteamIDs=$SUPER_ADMIN_STEAM_IDS
 AdminSteamIDs=$ADMIN_STEAM_IDS
 HeartbeatInterval=5.0
 Password=$SERVER_PASSWORD
+Port=$PORT
 EOF
 
     # Optional HTTPPort (only if enabled)
