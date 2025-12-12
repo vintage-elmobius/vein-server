@@ -39,7 +39,7 @@ services:
     image: ghcr.io/vintage-elmobius/vein-ui:latest
     container_name: vein-ui
     depends_on:
-      - vein-server
+      - vein
     ports:
       - "8081:8081"
     restart: unless-stopped
