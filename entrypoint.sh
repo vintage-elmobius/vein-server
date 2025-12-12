@@ -64,7 +64,7 @@ Port=$PORT
 EOF
 
 # Conditionally add HTTPPort
-if [ "$DASHBOARD_ENABLED" = "true" ]; then
+if printf '%s' "$DASHBOARD_ENABLED" | grep -qiE '^(true|yes|1)$'; then
     echo "HTTPPort=$DASHBOARD_PORT"
     echo "[entrypoint] HTTP API enabled on port $DASHBOARD_PORT"
 else
