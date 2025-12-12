@@ -20,7 +20,8 @@ services:
       MAX_PLAYERS: "8"
       SUPER_ADMIN_STEAM_IDS: "SteamID64" #Enter SteamID64 into this field, separated by commas
       ADMIN_STEAM_IDS: "" #Enter SteamID64 into this field, separated by commas; use this for admins you don't want to be able to change other admin rights
-      
+      DASHBOARD_ENABLED: "true"
+      DASHBOARD_PORT: "8080"
       
     volumes:
       - /srv/games/vein-data:/opt/server
@@ -29,7 +30,7 @@ services:
     ports:
       - "7777:7777/udp"
       - "27015:27015/udp"
-
+      - "8080:8080" # Dashboard (HTTP)  
   vein-server-backup:
 
     image: elmobius/vein-backup:latest
