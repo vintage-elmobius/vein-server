@@ -1,87 +1,28 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vein Server Dashboard</title>
-  <link rel="stylesheet" href="styles.css" />
+    <meta charset="UTF-8">
+    <title>Vein Server Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="page-header">
-    <div>
-      <p class="eyebrow">Vein HTTP API</p>
-      <h1>Vein Server Dashboard</h1>
-      <p class="lead">Interact with the Vein dedicated server HTTP endpoints referenced in the Ramjet article. Update the base URL to point at your server and explore the live data.</p>
+    <h1>Vein Server Status</h1>
+
+    <div id="status-box" class="box">
+        <h2>Status</h2>
+        <pre id="status-output">Loading...</pre>
     </div>
-    <div class="badge">Client-only</div>
-  </header>
 
-  <section class="card base-url">
-    <div class="field">
-      <label for="baseUrl">Base API URL</label>
-      <input id="baseUrl" name="baseUrl" type="url" value="http://localhost:7788" aria-describedby="baseHelp" />
-      <p id="baseHelp" class="help">The root of the Vein HTTP API. Include protocol and port; the dashboard will append endpoint paths.</p>
+    <div id="players-box" class="box">
+        <h2>Online Players</h2>
+        <pre id="players-output">Loading...</pre>
     </div>
-    <div class="field inline">
-      <label for="authToken">Auth Token (optional)</label>
-      <input id="authToken" name="authToken" type="text" placeholder="Bearer token or password if required" />
+
+    <div id="weather-box" class="box">
+        <h2>Weather</h2>
+        <pre id="weather-output">Loading...</pre>
     </div>
-    <div class="actions">
-      <button id="pingButton" class="secondary">Test connection</button>
-      <span id="connectionStatus" class="status-pill idle">Idle</span>
-    </div>
-  </section>
 
-  <section class="layout">
-    <aside class="card endpoints">
-      <div class="section-header">
-        <div>
-          <p class="eyebrow">Explore</p>
-          <h2>Common endpoints</h2>
-          <p class="help">These paths mirror the HTTP API documented in the article. Pick one to fetch the latest data.</p>
-        </div>
-        <div class="refresh-control">
-          <label for="refreshRate">Auto-refresh</label>
-          <select id="refreshRate">
-            <option value="0">Off</option>
-            <option value="5">5s</option>
-            <option value="10" selected>10s</option>
-            <option value="30">30s</option>
-          </select>
-        </div>
-      </div>
-      <ul id="endpointList" class="endpoint-list"></ul>
-
-      <div class="custom-request">
-        <h3>Custom request</h3>
-        <label for="customPath" class="visually-hidden">Endpoint path</label>
-        <input id="customPath" type="text" placeholder="/api/custom/path" />
-        <button id="customButton">Send request</button>
-      </div>
-    </aside>
-
-    <main class="card results">
-      <div class="section-header">
-        <div>
-          <p class="eyebrow" id="activePath">Awaiting request</p>
-          <h2>Response</h2>
-          <p class="help">JSON responses render below; raw text is displayed as-is if parsing fails.</p>
-        </div>
-        <div id="timestamp" class="timestamp">--</div>
-      </div>
-      <pre id="output" class="output" aria-live="polite"></pre>
-    </main>
-  </section>
-
-  <template id="endpointTemplate">
-    <li class="endpoint-item">
-      <button class="endpoint-button" type="button" data-path="">
-        <div class="label"></div>
-        <div class="path"></div>
-      </button>
-    </li>
-  </template>
-
-  <script src="app.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
