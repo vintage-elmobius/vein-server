@@ -1,211 +1,110 @@
 /* ============================
-   Vein Server Dashboard (API v1)
+   Vein Server Dashboard
    ============================ */
 
-/* ----------------------------
-   API endpoint definitions
----------------------------- */
-
-const endpoints = [
-  {
-    label: "Server Status",
-    path: "/status",
-    description: "Server uptime and online players",
-  },
-  {
-    label: "Players (list)",
-    path: "/players",
-    description: "List of player Steam IDs",
-  },
-  {
-    label: "World Time",
-    path: "/time",
-    description: "Current server time",
-  },
-  {
-    label: "Weather",
-    path: "/weather",
-    description: "Current weather conditions",
-  },
-];
+const API_BASE = `${window.location.origin}/api`;
 
 /* ----------------------------
    DOM references
 ---------------------------- */
 
-const outputEl = document.getElementById("output");
-const endpointList = document.getElementById("endpointList");
-const endpointTemplate = document.getElementById("endpointTemplate");
-const baseUrlEl = document.getElementById("baseUrl");
-const refreshRateEl = document.getElementById("refreshRate");
-const statusEl = document.getElementById("connectionStatus");
-const activePathEl = document.getElementById("activePath");
-const timestampEl = document.getElementById("timestamp");
-const customPathInput = document.getElementById("customPath");
-const customButton = document.getElementById("customButton");
-const pingButton = document.getElementById("pingButton");
-
-let refreshHandle = null;
-let lastPath = null;
+const statusEl = document.getElementById("status-output");
+const playersEl = document.getElementById("players-output");
+const weatherEl = document.getElementById("weather-output");
 
 /* ----------------------------
-   Utilities
+   Helpers
 ---------------------------- */
 
-const joinUrl = (base, path) => {
-  const trimmed = base.replace(/\/$/, "");
-  return `${trimmed}${path.startsWith("/") ? path : `/${path}`}`;
+const pretty = (obj) => JSON.stringify(obj, null, 2);
+
+const fetchJson = async (path) => {
+  const res = await fetch(`${API_BASE}${path}`);
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  return res.json();
 };
 
-const formatJson = (data) => JSON.stringify(data, null, 2);
+/* ----------------------------
+   Status
+---------------------------- */
 
-const renderOutput = (content) => {
-  outputEl.textContent = content;
-};
-
-const setStatus = (text, variant = "idle") => {
-  statusEl.textContent = text;
-  statusEl.className = variant;
-};
-
-const savePreferences = () => {
-  localStorage.setItem(
-    "vein-dashboard",
-    JSON.stringify({
-      baseUrl: baseUrlEl.value,
-      refreshRate: refreshRateEl.value,
-    })
-  );
-};
-
-const loadPreferences = () => {
-  const raw = localStorage.getItem("vein-dashboard");
-  if (!raw) return;
+const loadStatus = async () => {
   try {
-    const prefs = JSON.parse(raw);
-    if (prefs.baseUrl) baseUrlEl.value = prefs.baseUrl;
-    if (prefs.refreshRate) refreshRateEl.value = prefs.refreshRate;
-  } catch {
-    /* ignore */
+    const data = await fetchJson("/status");
+
+    const uptime = `${data.uptime.toFixed(1)} seconds`;
+    const onlineCount = Object.keys(data.onlinePlayers || {}).length;
+
+    statusEl.textContent =
+      `Uptime: ${uptime}\n` +
+      `Online Players: ${onlineCount}`;
+
+  } catch (err) {
+    statusEl.textContent = `Error: ${err.message}`;
   }
 };
 
 /* ----------------------------
-   Core fetch logic
+   Players
 ---------------------------- */
 
-const handleResponse = async (response) => {
-  const text = await response.text();
+const loadPlayers = async () => {
   try {
-    return formatJson(JSON.parse(text));
-  } catch {
-    return text;
-  }
-};
+    const data = await fetchJson("/status");
+    const players = data.onlinePlayers || {};
 
-const fetchPath = async (path) => {
-  const baseUrl = baseUrlEl.value.trim();
-  if (!baseUrl) {
-    setStatus("Base URL required", "error");
-    return;
-  }
-
-  const url = joinUrl(baseUrl, path);
-  activePathEl.textContent = url;
-  timestampEl.textContent = "Loading...";
-  renderOutput("Requesting data...");
-  setStatus("Requesting", "idle");
-
-  try {
-    const response = await fetch(url);
-    const content = await handleResponse(response);
-
-    if (!response.ok) {
-      setStatus(`HTTP ${response.status}`, "error");
-    } else {
-      setStatus("Connected", "ok");
+    if (Object.keys(players).length === 0) {
+      playersEl.textContent = "No players online";
+      return;
     }
 
-    renderOutput(content || "<empty>");
-    timestampEl.textContent = new Date().toLocaleString();
-    lastPath = path;
-    savePreferences();
+    const lines = Object.entries(players).map(
+      ([steamId, p]) =>
+        `${p.name} (${steamId})\n` +
+        `  Character ID: ${p.characterId}\n` +
+        `  Status: ${p.status}\n` +
+        `  Connected: ${p.timeConnected.toFixed(1)}s`
+    );
+
+    playersEl.textContent = lines.join("\n\n");
+
   } catch (err) {
-    setStatus("Network error", "error");
-    renderOutput(String(err));
-    timestampEl.textContent = new Date().toLocaleString();
+    playersEl.textContent = `Error: ${err.message}`;
   }
 };
 
 /* ----------------------------
-   Rendering
+   Weather
 ---------------------------- */
 
-const renderEndpoints = () => {
-  const fragment = document.createDocumentFragment();
+const loadWeather = async () => {
+  try {
+    const data = await fetchJson("/weather");
 
-  endpoints.forEach((endpoint) => {
-    const item = endpointTemplate.content.cloneNode(true);
-    const button = item.querySelector("button");
-    const label = item.querySelector(".label");
-    const pathEl = item.querySelector(".path");
+    weatherEl.textContent =
+      `Temperature: ${data.temperature.toFixed(1)} °C\n` +
+      `Cloudiness: ${data.cloudiness}\n` +
+      `Precipitation: ${data.precipitation}\n` +
+      `Fog: ${data.fog}\n` +
+      `Humidity: ${(data.relativeHumidity * 100).toFixed(1)}%\n` +
+      `Pressure: ${data.pressure.toFixed(1)} hPa\n` +
+      `Wind: ${data.windForce.toFixed(1)} m/s @ ${data.windDirection.toFixed(0)}°`;
 
-    label.textContent = endpoint.label;
-    pathEl.textContent = endpoint.path;
-    button.onclick = () => fetchPath(endpoint.path);
-
-    fragment.appendChild(item);
-  });
-
-  endpointList.replaceChildren(fragment);
+  } catch (err) {
+    weatherEl.textContent = `Error: ${err.message}`;
+  }
 };
 
 /* ----------------------------
-   Custom & helper actions
----------------------------- */
-
-const bindCustomRequest = () => {
-  customButton.onclick = () => {
-    const value = customPathInput.value.trim();
-    if (!value) return;
-    fetchPath(value.startsWith("/") ? value : `/${value}`);
-  };
-};
-
-const bindPing = () => {
-  pingButton.onclick = () => {
-    baseUrlEl.value = window.location.origin;
-    fetchPath("/status");
-  };
-};
-
-const watchRefresh = () => {
-  refreshRateEl.onchange = () => {
-    savePreferences();
-    if (refreshHandle) clearInterval(refreshHandle);
-    const interval = Number(refreshRateEl.value);
-    if (!interval || !lastPath) return;
-    refreshHandle = setInterval(() => fetchPath(lastPath), interval * 1000);
-  };
-};
-
-/* ----------------------------
-   Initialization
+   Init
 ---------------------------- */
 
 const init = () => {
-  loadPreferences();
-  renderEndpoints();
-  bindCustomRequest();
-  bindPing();
-  watchRefresh();
-
-  // Default to same-origin proxy (/api)
-  if (!baseUrlEl.value.trim()) {
-    baseUrlEl.value = `${window.location.origin}/api`;
-  }
-
-  fetchPath("/status");
+  loadStatus();
+  loadPlayers();
+  loadWeather();
 };
 
 init();
