@@ -1,221 +1,266 @@
-/* ==========================================================
-   Vein Server Dashboard – API v1
-   ========================================================== */
+/* =========================================================
+   Vein Server Dashboard — API v1
+   ========================================================= */
 
 const API_BASE = "/api";
 
-/* ---------------------------
+/* ----------------------------
    DOM references
---------------------------- */
+---------------------------- */
 
-const el = (id) => document.getElementById(id);
+const statusEl = document.getElementById("connectionStatus");
+const lastUpdatedEl = document.getElementById("lastUpdated");
 
-const statusPill = el("connectionStatus");
-const lastUpdatedEl = el("lastUpdated");
+const uptimeEl = document.getElementById("uptime");
+const playerCountEl = document.getElementById("playerCount");
+const serverTimeEl = document.getElementById("serverTime");
 
-const uptimeEl = el("uptime");
-const playerCountEl = el("playerCount");
-const serverTimeEl = el("serverTime");
-const statusRawEl = el("statusRaw");
+const statusRawEl = document.getElementById("statusRaw");
 
-const wxTempEl = el("wxTemp");
-const wxWindEl = el("wxWind");
-const wxCloudsEl = el("wxClouds");
-const wxHumidityEl = el("wxHumidity");
-const wxPrecipEl = el("wxPrecip");
-const wxPressureEl = el("wxPressure");
-const wxFogEl = el("wxFog");
-const weatherRawEl = el("weatherRaw");
-const wxToggleEl = el("wxToggle");
+const wxTempEl = document.getElementById("wxTemp");
+const wxWindEl = document.getElementById("wxWind");
+const wxCloudsEl = document.getElementById("wxClouds");
+const wxHumidityEl = document.getElementById("wxHumidity");
+const wxPrecipEl = document.getElementById("wxPrecip");
+const wxPressureEl = document.getElementById("wxPressure");
+const wxFogEl = document.getElementById("wxFog");
+const wxRawEl = document.getElementById("weatherRaw");
+const wxToggleEl = document.getElementById("wxToggle");
 
-const playersTbody = el("playersTbody");
-const charactersRawEl = el("charactersRaw");
+const playersTbodyEl = document.getElementById("playersTbody");
+const charactersRawEl = document.getElementById("charactersRaw");
 
-const refreshRateEl = el("refreshRate");
-const refreshNowBtn = el("refreshNow");
-const apiBaseEl = el("apiBase");
+const refreshRateEl = document.getElementById("refreshRate");
+const refreshNowBtn = document.getElementById("refreshNow");
 
-/* ---------------------------
-   State & cache
---------------------------- */
+/* ----------------------------
+   State
+---------------------------- */
 
-let refreshTimer = null;
+let refreshHandle = null;
+const characterCache = {};
 
-// Cache character payloads by characterId
-const characterCache = new Map();
+/* ----------------------------
+   Utilities
+---------------------------- */
 
-/* ---------------------------
-   Helpers
---------------------------- */
-
-const setStatus = (text, cls) => {
-  statusPill.textContent = text;
-  statusPill.className = `pill ${cls}`;
+const setStatus = (text, variant = "idle") => {
+  statusEl.textContent = text;
+  statusEl.className = `pill ${variant}`;
 };
 
-const nowString = () => new Date().toLocaleString();
-
-const fmtSeconds = (s) => `${s.toFixed(1)}s`;
-
-const fmtInventorySummary = (inv) => {
-  if (!inv || !inv.items) return "—";
-  const count = inv.items.length;
-  if (!count) return "Empty";
-  return `${count} item${count !== 1 ? "s" : ""}`;
+const updateTimestamp = () => {
+  lastUpdatedEl.textContent = new Date().toLocaleString();
 };
 
 const fetchJSON = async (path) => {
   const res = await fetch(`${API_BASE}${path}`);
-  if (!res.ok) throw new Error(`${path} → ${res.status}`);
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
   return res.json();
 };
 
-/* ---------------------------
-   API loaders
---------------------------- */
+const formatSeconds = (seconds) => {
+  if (!seconds && seconds !== 0) return "--";
+  const s = Math.floor(seconds);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${h}h ${m}m ${sec}s`;
+};
 
-async function loadStatus() {
+const formatGameTime = (unixSeconds) => {
+  if (!unixSeconds) return "--";
+  const d = new Date(unixSeconds * 1000);
+  return `${d.toLocaleDateString()} ${d.toLocaleTimeString()} (game time)`;
+};
+
+const clearTable = () => {
+  playersTbodyEl.innerHTML = "";
+};
+
+/* ----------------------------
+   Weather toggle
+---------------------------- */
+
+wxToggleEl.onclick = (e) => {
+  e.preventDefault();
+  wxRawEl.classList.toggle("hidden");
+  wxToggleEl.textContent = wxRawEl.classList.contains("hidden")
+    ? "show"
+    : "hide";
+};
+
+/* ----------------------------
+   Fetch & render: STATUS
+---------------------------- */
+
+const loadStatus = async () => {
   const data = await fetchJSON("/status");
 
-  uptimeEl.textContent = fmtSeconds(data.uptime);
+  uptimeEl.textContent = formatSeconds(data.uptime);
   playerCountEl.textContent = Object.keys(data.onlinePlayers || {}).length;
   statusRawEl.textContent = JSON.stringify(data, null, 2);
 
   return data.onlinePlayers || {};
-}
+};
 
-async function loadTime() {
+/* ----------------------------
+   Fetch & render: TIME
+---------------------------- */
+
+const loadTime = async () => {
   const data = await fetchJSON("/time");
-  serverTimeEl.textContent = new Date(data.unixSeconds * 1000).toLocaleString();
-}
+  serverTimeEl.textContent = formatGameTime(data.unixSeconds);
+};
 
-async function loadWeather() {
-  const w = await fetchJSON("/weather");
+/* ----------------------------
+   Fetch & render: WEATHER
+---------------------------- */
 
-  wxTempEl.textContent = `${w.temperature.toFixed(1)} °C`;
-  wxWindEl.textContent = `${w.windForce.toFixed(1)} m/s @ ${Math.round(w.windDirection)}°`;
-  wxCloudsEl.textContent = (w.cloudiness * 100).toFixed(1) + "%";
-  wxHumidityEl.textContent = (w.relativeHumidity * 100).toFixed(1) + "%";
-  wxPrecipEl.textContent = w.precipitation;
-  wxPressureEl.textContent = `${w.pressure.toFixed(1)} hPa`;
-  wxFogEl.textContent = w.fog;
+const loadWeather = async () => {
+  const data = await fetchJSON("/weather");
 
-  weatherRawEl.textContent = JSON.stringify(w, null, 2);
-}
+  wxTempEl.textContent = `${data.temperature.toFixed(1)} °C`;
+  wxWindEl.textContent = `${data.windForce.toFixed(1)} m/s @ ${Math.round(
+    data.windDirection
+  )}°`;
+  wxCloudsEl.textContent = `${(data.cloudiness * 100).toFixed(1)}%`;
+  wxHumidityEl.textContent = `${(data.relativeHumidity * 100).toFixed(1)}%`;
+  wxPrecipEl.textContent = data.precipitation.toString();
+  wxPressureEl.textContent = `${data.pressure.toFixed(1)} hPa`;
+  wxFogEl.textContent = data.fog.toString();
 
-async function loadCharacter(characterId) {
-  if (characterCache.has(characterId)) {
-    return characterCache.get(characterId);
+  wxRawEl.textContent = JSON.stringify(data, null, 2);
+};
+
+/* ----------------------------
+   Fetch character details (cached)
+---------------------------- */
+
+const loadCharacter = async (characterId) => {
+  if (characterCache[characterId]) {
+    return characterCache[characterId];
   }
 
   const data = await fetchJSON(`/characters/${characterId}`);
-  characterCache.set(characterId, data);
+  characterCache[characterId] = data;
+  charactersRawEl.textContent = JSON.stringify(characterCache, null, 2);
+  return data;
+};
 
-  charactersRawEl.textContent = JSON.stringify(
-    Object.fromEntries(characterCache),
-    null,
-    2
+/* ----------------------------
+   Inventory summary
+---------------------------- */
+
+const summarizeInventory = (inventory) => {
+  if (!inventory || !inventory.items) return "—";
+
+  const itemCount = inventory.items.length;
+  const totalWeight = inventory.items.reduce(
+    (sum, i) => sum + (i.weight || 0),
+    0
   );
 
-  return data;
-}
+  return `${itemCount} items, ${totalWeight.toFixed(1)} kg`;
+};
 
-/* ---------------------------
-   Players table
---------------------------- */
+/* ----------------------------
+   Render players table
+---------------------------- */
 
-async function renderPlayers(onlinePlayers) {
-  playersTbody.innerHTML = "";
+const renderPlayers = async (onlinePlayers) => {
+  clearTable();
 
-  const entries = Object.entries(onlinePlayers);
-
-  if (!entries.length) {
-    playersTbody.innerHTML =
+  const ids = Object.keys(onlinePlayers);
+  if (ids.length === 0) {
+    playersTbodyEl.innerHTML =
       `<tr><td colspan="7" class="muted">No players online</td></tr>`;
     return;
   }
 
-  for (const [steamId, p] of entries) {
-    const tr = document.createElement("tr");
-
-    // Fetch character data
-    let charName = "Loading…";
-    let invSummary = "—";
+  for (const steamId of ids) {
+    const p = onlinePlayers[steamId];
+    let characterName = "Loading…";
+    let inventorySummary = "—";
 
     try {
       const charData = await loadCharacter(p.characterId);
-      charName = charData.playerCharacterData?.name ?? "Unknown";
-      invSummary = fmtInventorySummary(charData.inventory);
+      characterName = charData.playerCharacterData?.name || "Unknown";
+      inventorySummary = summarizeInventory(charData.inventory);
     } catch {
-      charName = "Error";
+      characterName = "Error";
     }
 
+    const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${p.name}</td>
       <td class="mono">${steamId}</td>
       <td>${p.status}</td>
-      <td class="mono">${fmtSeconds(p.timeConnected)}</td>
-      <td>${charName}</td>
+      <td class="mono">${formatSeconds(p.timeConnected)}</td>
+      <td>${characterName}</td>
       <td class="mono">${p.characterId}</td>
-      <td>${invSummary}</td>
+      <td>${inventorySummary}</td>
     `;
 
-    playersTbody.appendChild(tr);
+    playersTbodyEl.appendChild(tr);
   }
-}
+};
 
-/* ---------------------------
-   Main refresh loop
---------------------------- */
+/* ----------------------------
+   Main refresh cycle
+---------------------------- */
 
-async function refreshAll() {
+const refreshAll = async () => {
   try {
+    setStatus("Updating…", "idle");
+
+    const onlinePlayers = await loadStatus();
+    await loadTime();
+    await loadWeather();
+    await renderPlayers(onlinePlayers);
+
+    updateTimestamp();
     setStatus("Connected", "ok");
-
-    const players = await loadStatus();
-    await Promise.all([loadTime(), loadWeather()]);
-    await renderPlayers(players);
-
-    lastUpdatedEl.textContent = nowString();
   } catch (err) {
-    setStatus("API Error", "error");
+    setStatus("API error", "error");
     console.error(err);
   }
-}
+};
 
-/* ---------------------------
-   Controls
---------------------------- */
+/* ----------------------------
+   Refresh controls
+---------------------------- */
 
-function resetRefreshTimer() {
-  if (refreshTimer) clearInterval(refreshTimer);
+const setupRefresh = () => {
+  refreshRateEl.onchange = () => {
+    if (refreshHandle) {
+      clearInterval(refreshHandle);
+      refreshHandle = null;
+    }
+
+    const interval = Number(refreshRateEl.value);
+    if (interval > 0) {
+      refreshHandle = setInterval(refreshAll, interval * 1000);
+    }
+  };
+
+  refreshNowBtn.onclick = refreshAll;
+};
+
+/* ----------------------------
+   Init
+---------------------------- */
+
+const init = () => {
+  setupRefresh();
+  refreshAll();
 
   const interval = Number(refreshRateEl.value);
-  if (!interval) return;
-
-  refreshTimer = setInterval(refreshAll, interval * 1000);
-}
-
-refreshRateEl.addEventListener("change", resetRefreshTimer);
-refreshNowBtn.addEventListener("click", refreshAll);
-
-wxToggleEl.addEventListener("click", (e) => {
-  e.preventDefault();
-  weatherRawEl.classList.toggle("hidden");
-  wxToggleEl.textContent = weatherRawEl.classList.contains("hidden")
-    ? "show"
-    : "hide";
-});
-
-/* ---------------------------
-   Init
---------------------------- */
-
-function init() {
-  apiBaseEl.textContent = API_BASE;
-  setStatus("Loading…", "idle");
-  resetRefreshTimer();
-  refreshAll();
-}
+  if (interval > 0) {
+    refreshHandle = setInterval(refreshAll, interval * 1000);
+  }
+};
 
 init();
