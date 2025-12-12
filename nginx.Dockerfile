@@ -1,21 +1,12 @@
-server {
-    listen 8081;
+FROM nginx:alpine
 
-    root /usr/share/nginx/html;
-    index index.html;
+# Remove the default config
+RUN rm /etc/nginx/conf.d/default.conf
 
-    location / {
-        try_files $uri $uri/ =404;
-    }
+# Copy our nginx config
+COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 
-    location /api/ {
-        proxy_pass http://127.0.0.1:8443/;
-        proxy_http_version 1.1;
+# Copy frontend files
+COPY web /usr/share/nginx/html
 
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-        proxy_read_timeout 30s;
-    }
-}
+EXPOSE 8081
