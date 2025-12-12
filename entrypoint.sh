@@ -18,6 +18,9 @@ ADMIN_STEAM_IDS="${ADMIN_STEAM_IDS:-}"
 SERVERLIST_VISIBLE="${SERVERLIST_VISIBLE:-True}"
 BIND_ADDR="${BIND_ADDR:-0.0.0.0}"
 VAC_ENABLED="${VAC_ENABLED:-0}"
+DASHBOARD_ENABLED="${DASHBOARD_ENABLED:-true}"
+DASHBOARD_PORT="${DASHBOARD_PORT:-8080}"
+DASHBOARD_DIR="${DASHBOARD_DIR:-/opt/dashboard}"
 
 export HOME="/home/steam"
 
@@ -81,6 +84,11 @@ EOF
 echo "[entrypoint] Starting Vein server: Port=$PORT QueryPort=$QUERY_PORT"
 
 cd "$SERVERDIR"
+
+if [ "$DASHBOARD_ENABLED" = "true" ] && [ -d "$DASHBOARD_DIR" ]; then
+    echo "[entrypoint] Starting HTTP dashboard on port $DASHBOARD_PORT"
+    python3 -m http.server "$DASHBOARD_PORT" --bind 0.0.0.0 --directory "$DASHBOARD_DIR" >/tmp/dashboard.log 2>&1 &
+fi
 
 exec "$SERVERDIR/Vein/Binaries/Linux/VeinServer-Linux-Test" \
     -Port="$PORT" \
