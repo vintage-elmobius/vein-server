@@ -20,6 +20,9 @@ services:
       MAX_PLAYERS: "8"
       SUPER_ADMIN_STEAM_IDS: "SteamID64" #Enter SteamID64 into this field, separated by commas
       ADMIN_STEAM_IDS: "" #Enter SteamID64 into this field, separated by commas; use this for admins you don't want to be able to change other admin rights
+      SERVERLIST_VISIBLE: "True" #Set to "False" if you do not want your server to show up in server list
+      BIND_ADDR: "" #Sets what IP address the server listens on. Generally, this doesn’t need to be set or changed.
+      VAC_ENABLED: "0" #Set to "1" to enable Steam VAC
       DASHBOARD_ENABLED: "true"
       DASHBOARD_PORT: "8443"
       
