@@ -31,12 +31,12 @@ services:
     ports:
       - "7777:7777/udp"
       - "27015:27015/udp"
+      - "8081:8081"
 
   vein-ui:
     container_name: vein-ui
+    network_mode: service:vein-server
     restart: unless-stopped
     image: ghcr.io/vintage-elmobius/vein-ui:wip
-    ports:
-      - "8081:8081"
     depends_on:
       - vein-server
