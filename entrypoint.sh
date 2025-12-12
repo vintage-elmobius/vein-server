@@ -74,7 +74,8 @@ EOF
     # Optional HTTPPort (only if enabled)
     if printf '%s' "$DASHBOARD_ENABLED" | grep -qiE '^(true|1|yes)$'; then
         echo "HTTPPort=$DASHBOARD_PORT" >> "$CFG_FILE"
-        echo "[entrypoint] Added HTTPPort=$DASHBOARD_PORT"
+        echo "HTTPBindAddr=0.0.0.0" >> "$CFG_FILE"
+        echo "[entrypoint] HTTP API enabled on port $DASHBOARD_PORT and bound to all interfaces"
     else
         echo "[entrypoint] Dashboard disabled — HTTPPort omitted."
     fi
