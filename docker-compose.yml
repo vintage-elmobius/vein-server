@@ -1,6 +1,6 @@
 services:
   vein-server:
-    image: ghcr.io/vintage-elmobius/vein-server:wip
+    image: ghcr.io/vintage-elmobius/vein-server:latest
     container_name: vein-server
     restart: unless-stopped
 
@@ -37,6 +37,6 @@ services:
     container_name: vein-ui
     network_mode: service:vein-server
     restart: unless-stopped
-    image: ghcr.io/vintage-elmobius/vein-ui:wip
+    image: ghcr.io/vintage-elmobius/vein-ui:latest
     depends_on:
       - vein-server
