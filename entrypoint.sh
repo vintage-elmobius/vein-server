@@ -67,6 +67,7 @@ GameServerQueryPort=$QUERY_PORT
 bVACEnabled=$VAC_ENABLED
 Password=$SERVER_PASSWORD
 Port=$PORT
+HTTPPort=$DASHBOARD_PORT
 
 [/Script/Vein.ServerSettings]
 GS_HungerMultiplier=1
@@ -84,11 +85,6 @@ EOF
 echo "[entrypoint] Starting Vein server: Port=$PORT QueryPort=$QUERY_PORT"
 
 cd "$SERVERDIR"
-
-if [ "$DASHBOARD_ENABLED" = "true" ] && [ -d "$DASHBOARD_DIR" ]; then
-    echo "[entrypoint] Starting HTTP dashboard on port $DASHBOARD_PORT"
-    python3 -m http.server "$DASHBOARD_PORT" --bind 0.0.0.0 --directory "$DASHBOARD_DIR" >/tmp/dashboard.log 2>&1 &
-fi
 
 exec "$SERVERDIR/Vein/Binaries/Linux/VeinServer-Linux-Test" \
     -Port="$PORT" \
