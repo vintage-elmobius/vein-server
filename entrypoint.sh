@@ -3,13 +3,13 @@ set -e
 
 APPID=2131400
 
-STEAMCMDDIR="/opt/steamcmd"
-SERVERDIR="/opt/server"
+STEAMCMDDIR="${STEAMCMDDIR:-/opt/steamcmd}"
+SERVERDIR="${SERVERDIR:-/opt/server}"
 CFG_DIR="$SERVERDIR/Vein/Saved/Config/LinuxServer"
 CFG_FILE="$CFG_DIR/Game.ini"
 
 # ---------------------------------------------------
-# Environment variables (with defaults)
+# Environment variables (defaults)
 # ---------------------------------------------------
 PORT="${PORT:-7777}"
 QUERY_PORT="${QUERY_PORT:-27015}"
@@ -27,35 +27,35 @@ BIND_ADDR="${BIND_ADDR:-0.0.0.0}"
 VAC_ENABLED="${VAC_ENABLED:-0}"
 
 DASHBOARD_ENABLED="${DASHBOARD_ENABLED:-true}"
-DASHBOARD_PORT="${DASHBOARD_PORT:-8080}"
+DASHBOARD_PORT="${DASHBOARD_PORT:-8443}"
 
 export HOME="/home/steam"
 
 # ---------------------------------------------------
-# Update server files
+# Update server binaries
 # ---------------------------------------------------
 echo "[entrypoint] Updating Vein dedicated server…"
-$STEAMCMDDIR/steamcmd.sh \
-    +force_install_dir "$SERVERDIR" \
-    +login anonymous \
-    +app_update $APPID validate \
-    +quit
 
-# Steam API lib
+$STEAMCMDDIR/steamcmd.sh \
+  +force_install_dir "$SERVERDIR" \
+  +login anonymous \
+  +app_update $APPID validate \
+  +quit
+
 mkdir -p "$HOME/.steam/sdk64"
 cp "$STEAMCMDDIR/linux64/steamclient.so" "$HOME/.steam/sdk64/steamclient.so"
-
 echo "$APPID" > "$SERVERDIR/steam_appid.txt"
 
 mkdir -p "$CFG_DIR"
 
 # ---------------------------------------------------
-# Create Game.ini only if it does NOT exist
+# Create Game.ini ONLY if missing
 # ---------------------------------------------------
 if [ ! -f "$CFG_FILE" ]; then
-    echo "[entrypoint] Creating initial Game.ini from environment variables."
+  echo "[entrypoint] Creating initial Game.ini from env vars"
 
-    cat > "$CFG_FILE" <<EOF
+  {
+    cat <<EOF
 [/Script/Engine.GameSession]
 MaxPlayers=$MAX_PLAYERS
 
@@ -68,19 +68,14 @@ SuperAdminSteamIDs=$SUPER_ADMIN_STEAM_IDS
 AdminSteamIDs=$ADMIN_STEAM_IDS
 HeartbeatInterval=5.0
 Password=$SERVER_PASSWORD
-Port=$PORT
 EOF
 
-    # Optional HTTPPort (only if enabled)
     if printf '%s' "$DASHBOARD_ENABLED" | grep -qiE '^(true|1|yes)$'; then
-        echo "HTTPPort=$DASHBOARD_PORT" >> "$CFG_FILE"
-        echo "HTTPBindAddr=0.0.0.0" >> "$CFG_FILE"
-        echo "[entrypoint] HTTP API enabled on port $DASHBOARD_PORT and bound to all interfaces"
-    else
-        echo "[entrypoint] Dashboard disabled — HTTPPort omitted."
+      echo "HTTPPort=$DASHBOARD_PORT"
+      echo "[entrypoint] HTTP API enabled on port $DASHBOARD_PORT"
     fi
 
-    cat >> "$CFG_FILE" <<EOF
+    cat <<EOF
 
 [/Script/Vein.VeinGameStateBase]
 WhitelistedPlayers=
@@ -88,20 +83,27 @@ WhitelistedPlayers=
 [OnlineSubsystemSteam]
 GameServerQueryPort=$QUERY_PORT
 bVACEnabled=$VAC_ENABLED
+
+[URL]
+Port=$PORT
 EOF
+  } > "$CFG_FILE"
 
 else
-    echo "[entrypoint] Game.ini already exists — NOT modifying it."
+  echo "[entrypoint] Game.ini exists — not modifying"
 fi
 
 # ---------------------------------------------------
-# Start the server
+# Start Vein server (background)
 # ---------------------------------------------------
-echo "[entrypoint] Launching Vein server on Port=$PORT, QueryPort=$QUERY_PORT"
+echo "[entrypoint] Starting Vein server"
+"$SERVERDIR/Vein/Binaries/Linux/VeinServer-Linux-Test" \
+  -Port="$PORT" \
+  -QueryPort="$QUERY_PORT" \
+  -log &
 
-cd "$SERVERDIR"
-
-exec "$SERVERDIR/Vein/Binaries/Linux/VeinServer-Linux-Test" \
-    -Port="$PORT" \
-    -QueryPort="$QUERY_PORT" \
-    -log
+# ---------------------------------------------------
+# Start NGINX (foreground)
+# ---------------------------------------------------
+echo "[entrypoint] Starting NGINX"
+exec nginx -g "daemon off;"
