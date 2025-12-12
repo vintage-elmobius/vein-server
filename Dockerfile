@@ -39,6 +39,6 @@ USER steam
 
 WORKDIR /opt/server
 
-EXPOSE 7777/udp 27015/udp 8080
+EXPOSE 7777/udp 27015/udp 8443
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
