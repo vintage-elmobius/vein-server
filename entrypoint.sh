@@ -20,7 +20,6 @@ BIND_ADDR="${BIND_ADDR:-0.0.0.0}"
 VAC_ENABLED="${VAC_ENABLED:-0}"
 DASHBOARD_ENABLED="${DASHBOARD_ENABLED:-true}"
 DASHBOARD_PORT="${DASHBOARD_PORT:-8080}"
-DASHBOARD_DIR="${DASHBOARD_DIR:-/opt/dashboard}"
 
 export HOME="/home/steam"
 
@@ -32,26 +31,21 @@ if [ "$BRANCH" != "public" ]; then
     UPDATE_CMD="+force_install_dir $SERVERDIR +login anonymous +app_update $APPID -beta $BRANCH validate +quit"
 fi
 
-# Run update
 $STEAMCMDDIR/steamcmd.sh $UPDATE_CMD
 
-# -------------------------------------------------------------------
-# Install steamclient.so for SteamAPI
-# -------------------------------------------------------------------
 mkdir -p "$HOME/.steam/sdk64"
 cp "$STEAMCMDDIR/linux64/steamclient.so" "$HOME/.steam/sdk64/steamclient.so"
 
 echo "$APPID" > "$SERVERDIR/steam_appid.txt"
 
-# -------------------------------------------------------------------
-# Generate Game.ini every boot
-# -------------------------------------------------------------------
 CFG_DIR="$SERVERDIR/Vein/Saved/Config/LinuxServer"
 CFG_FILE="$CFG_DIR/Game.ini"
 mkdir -p "$CFG_DIR"
 
 echo "[entrypoint] Writing Game.ini ..."
-cat > "$CFG_FILE" <<EOF
+
+{
+cat <<EOF
 [/Script/Engine.GameSession]
 MaxPlayers=$MAX_PLAYERS
 
@@ -69,22 +63,15 @@ Password=$SERVER_PASSWORD
 Port=$PORT
 EOF
 
-# CONDITIONAL VEIN HTTP API SUPPORT
+# Conditionally add HTTPPort
 if [ "$DASHBOARD_ENABLED" = "true" ]; then
-    echo "HTTPPort=$DASHBOARD_PORT" >> "$CFG_FILE"
+    echo "HTTPPort=$DASHBOARD_PORT"
     echo "[entrypoint] HTTP API enabled on port $DASHBOARD_PORT"
 else
-    echo "[entrypoint] HTTP API DISABLED"
+    echo "[entrypoint] HTTP API disabled"
 fi
 
-# Add final section
-cat >> "$CFG_FILE" <<EOF
-
-[OnlineSubsystemSteam]
-GameServerQueryPort=$QUERY_PORT
-EOF
-
-HTTPPort=$DASHBOARD_PORT
+cat <<EOF
 
 [/Script/Vein.ServerSettings]
 GS_HungerMultiplier=1
@@ -98,6 +85,7 @@ Vein.TimeMultiplier=16
 [OnlineSubsystemSteam]
 GameServerQueryPort=$QUERY_PORT
 EOF
+} > "$CFG_FILE"
 
 echo "[entrypoint] Starting Vein server: Port=$PORT QueryPort=$QUERY_PORT"
 
