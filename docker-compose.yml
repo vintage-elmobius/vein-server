@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  vein:
+    image: elmobius/vein-server:latest
+    container_name: vein-server
+    restart: unless-stopped
+    
+
+    environment:
+      TZ: "America/New_York"
+      VEIN_BRANCH: "public"
+      PORT: "7788"
+      PUID: "1000"
+      PGID: "1000"
+      QUERY_PORT: "27055"
+      SERVER_NAME: "My Dockerized VEIN Server - Change My Name"
+      SERVER_DESCRIPTION: "Its a server. That you can join. If you have the password. Which you probably don't."
+      SERVER_PASSWORD: "password"
+      MAX_PLAYERS: "8"
+      SUPER_ADMIN_STEAM_IDS: "SteamID64" #Enter SteamID64 into this field, separated by commas
+      ADMIN_STEAM_IDS: "" #Enter SteamID64 into this field, separated by commas; use this for admins you don't want to be able to change other admin rights
+      
+      
+    volumes:
+      - /srv/games/vein-data:/opt/server
+
+
+    ports:
+      - "7777:7777/udp"
+      - "27015:27015/udp"
+
+  vein-server-backup:
+
+    image: elmobius/vein-backup:latest
+    container_name: vein-backup
+    restart: unless-stopped
+    volumes:
+      - /srv/games/vein-data:/data:ro
+      - /srv/games/vein-backups:/backup
+    environment:
+      PUID: 1000
+      PGID: 1000
+      VEIN_SERVER_BACKUP_INTERVAL_SECONDS: 7200
+      VEIN_SERVER_BACKUP_RETENTION: 10
