@@ -1,14 +1,6 @@
-FROM nginx:alpine
-
-# Remove default config shipped with nginx
-RUN rm -f /etc/nginx/conf.d/default.conf
-
-# Write our nginx config directly
-RUN cat <<'EOF' > /etc/nginx/conf.d/default.conf
 server {
     listen 8081;
 
-    # Serve frontend
     root /usr/share/nginx/html;
     index index.html;
 
@@ -16,9 +8,8 @@ server {
         try_files $uri $uri/ =404;
     }
 
-    # Proxy Vein HTTP API (localhost-only inside vein-server)
     location /api/ {
-        proxy_pass http://vein-server:8443/;
+        proxy_pass http://127.0.0.1:8443/;
         proxy_http_version 1.1;
 
         proxy_set_header Host $host;
@@ -28,11 +19,3 @@ server {
         proxy_read_timeout 30s;
     }
 }
-EOF
-
-# Copy frontend files
-COPY web/ /usr/share/nginx/html/
-
-EXPOSE 8081
-
-CMD ["nginx", "-g", "daemon off;"]
