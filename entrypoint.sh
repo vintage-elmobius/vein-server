@@ -18,6 +18,7 @@ ADMIN_STEAM_IDS="${ADMIN_STEAM_IDS:-}"
 SERVERLIST_VISIBLE="${SERVERLIST_VISIBLE:-True}"
 BIND_ADDR="${BIND_ADDR:-0.0.0.0}"
 VAC_ENABLED="${VAC_ENABLED:-0}"
+
 DASHBOARD_ENABLED="${DASHBOARD_ENABLED:-true}"
 DASHBOARD_PORT="${DASHBOARD_PORT:-8080}"
 
@@ -26,7 +27,6 @@ export HOME="/home/steam"
 echo "[entrypoint] Updating Vein dedicated server (appid $APPID, branch $BRANCH)"
 
 UPDATE_CMD="+force_install_dir $SERVERDIR +login anonymous +app_update $APPID validate +quit"
-
 if [ "$BRANCH" != "public" ]; then
     UPDATE_CMD="+force_install_dir $SERVERDIR +login anonymous +app_update $APPID -beta $BRANCH validate +quit"
 fi
@@ -42,10 +42,13 @@ CFG_DIR="$SERVERDIR/Vein/Saved/Config/LinuxServer"
 CFG_FILE="$CFG_DIR/Game.ini"
 mkdir -p "$CFG_DIR"
 
-echo "[entrypoint] Writing Game.ini ..."
+# -------------------------------------------------------------------
+# CREATE DEFAULT GAME.INI ONLY IF MISSING
+# -------------------------------------------------------------------
+if [ ! -f "$CFG_FILE" ]; then
+    echo "[entrypoint] Game.ini missing — generating new default file."
 
-{
-cat <<EOF
+    cat > "$CFG_FILE" <<EOF
 [/Script/Engine.GameSession]
 MaxPlayers=$MAX_PLAYERS
 
@@ -61,17 +64,6 @@ GameServerQueryPort=$QUERY_PORT
 bVACEnabled=$VAC_ENABLED
 Password=$SERVER_PASSWORD
 Port=$PORT
-EOF
-
-# Conditionally add HTTPPort
-if printf '%s' "$DASHBOARD_ENABLED" | grep -qiE '^(true|yes|1)$'; then
-    echo "HTTPPort=$DASHBOARD_PORT"
-    echo "[entrypoint] HTTP API enabled on port $DASHBOARD_PORT"
-else
-    echo "[entrypoint] HTTP API disabled"
-fi
-
-cat <<EOF
 
 [/Script/Vein.ServerSettings]
 GS_HungerMultiplier=1
@@ -85,7 +77,26 @@ Vein.TimeMultiplier=16
 [OnlineSubsystemSteam]
 GameServerQueryPort=$QUERY_PORT
 EOF
-} > "$CFG_FILE"
+else
+    echo "[entrypoint] Game.ini exists — NOT overwriting."
+fi
+
+# -------------------------------------------------------------------
+# ENSURE HTTPPort IS PRESENT OR UPDATED
+# -------------------------------------------------------------------
+if printf '%s' "$DASHBOARD_ENABLED" | grep -qiE '^(true|1|yes)$'; then
+    if grep -q "^HTTPPort=" "$CFG_FILE"; then
+        # Update existing line
+        sed -i "s/^HTTPPort=.*/HTTPPort=$DASHBOARD_PORT/" "$CFG_FILE"
+        echo "[entrypoint] Updated existing HTTPPort=$DASHBOARD_PORT."
+    else
+        # Add new line directly under [/Script/Vein.VeinGameSession]
+        sed -i "/^\[\/Script\/Vein\.VeinGameSession\]/a HTTPPort=$DASHBOARD_PORT" "$CFG_FILE"
+        echo "[entrypoint] Added missing HTTPPort=$DASHBOARD_PORT."
+    fi
+else
+    echo "[entrypoint] Dashboard disabled — no HTTPPort added."
+fi
 
 echo "[entrypoint] Starting Vein server: Port=$PORT QueryPort=$QUERY_PORT"
 
