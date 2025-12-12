@@ -7,8 +7,8 @@ services:
     environment:
       TZ: America/New_York
 
-      PORT: "7777"
-      QUERY_PORT: "27015"
+      PORT: "7788"
+      QUERY_PORT: "27055"
 
       SERVER_NAME: "My Dockerized VEIN Server"
       SERVER_DESCRIPTION: "Its a server. That you can join."
@@ -29,8 +29,8 @@ services:
       - /srv/games/vein-data:/opt/server
 
     ports:
-      - "7777:7777/udp"
-      - "27015:27015/udp"
+      - "7788:7788/udp"
+      - "27055:27055/udp"
       - "8081:8081"
 
   vein-backup:
