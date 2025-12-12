@@ -67,6 +67,23 @@ GameServerQueryPort=$QUERY_PORT
 bVACEnabled=$VAC_ENABLED
 Password=$SERVER_PASSWORD
 Port=$PORT
+EOF
+
+# CONDITIONAL VEIN HTTP API SUPPORT
+if [ "$DASHBOARD_ENABLED" = "true" ]; then
+    echo "HTTPPort=$DASHBOARD_PORT" >> "$CFG_FILE"
+    echo "[entrypoint] HTTP API enabled on port $DASHBOARD_PORT"
+else
+    echo "[entrypoint] HTTP API DISABLED"
+fi
+
+# Add final section
+cat >> "$CFG_FILE" <<EOF
+
+[OnlineSubsystemSteam]
+GameServerQueryPort=$QUERY_PORT
+EOF
+
 HTTPPort=$DASHBOARD_PORT
 
 [/Script/Vein.ServerSettings]
