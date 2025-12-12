@@ -33,6 +33,24 @@ services:
       - "27015:27015/udp"
       - "8081:8081"
 
+  vein-backup:
+    image: ghcr.io/vintage-elmobius/vein-backup:latest
+    container_name: vein-backup
+    restart: unless-stopped
+
+    depends_on:
+      - vein-server
+
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      VEIN_SERVER_BACKUP_INTERVAL_SECONDS: "7200"
+      VEIN_SERVER_BACKUP_RETENTION: "10"
+
+    volumes:
+      - /srv/games/vein-data:/data:ro
+      - /srv/games/vein-backups:/backup
+  
   vein-ui:
     container_name: vein-ui
     network_mode: service:vein-server
