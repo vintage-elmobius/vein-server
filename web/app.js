@@ -3,10 +3,7 @@
    ========================================================= */
 
 const API_BASE = "/api";
-
-// Temperature offset to account for elevation difference
-
-const TEMPERATURE_OFFSET_C = 4.0;
+const TEMP_PLAYER_OFFSET_C = -4; // players are colder than baseline
 
 /* ----------------------------
    DOM references
@@ -54,19 +51,17 @@ const setStatus = (text, variant = "idle") => {
 };
 
 const updateTimestamp = () => {
-  lastUpdatedEl.textContent = new Date().toLocaleString();
+  lastUpdatedEl.textContent = new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
 };
 
 const fetchJSON = async (path) => {
   const res = await fetch(`${API_BASE}${path}`);
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
-  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 };
 
 const formatSeconds = (seconds) => {
-  if (!seconds && seconds !== 0) return "--";
+  if (seconds == null) return "--";
   const s = Math.floor(seconds);
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
@@ -74,12 +69,12 @@ const formatSeconds = (seconds) => {
   return `${h}h ${m}m ${sec}s`;
 };
 
-const formatGameTime = (unixSeconds) => {
+const formatGameTimeUTC = (unixSeconds) => {
   if (!unixSeconds) return "--";
-  const d = new Date(unixSeconds * 1000);
-  const date = d.toISOString().slice(0, 10);
-  const time = d.toISOString().slice(11, 19);
-  return `${date} ${time} UTC (game time)`;
+  return new Date(unixSeconds * 1000)
+    .toISOString()
+    .replace("T", " ")
+    .slice(0, 19) + " UTC";
 };
 
 const clearTable = () => {
@@ -93,13 +88,11 @@ const clearTable = () => {
 wxToggleEl.onclick = (e) => {
   e.preventDefault();
   wxRawEl.classList.toggle("hidden");
-  wxToggleEl.textContent = wxRawEl.classList.contains("hidden")
-    ? "show"
-    : "hide";
+  wxToggleEl.textContent = wxRawEl.classList.contains("hidden") ? "show" : "hide";
 };
 
 /* ----------------------------
-   Fetch & render: STATUS
+   STATUS
 ---------------------------- */
 
 const loadStatus = async () => {
@@ -113,76 +106,69 @@ const loadStatus = async () => {
 };
 
 /* ----------------------------
-   Fetch & render: TIME
+   TIME
 ---------------------------- */
 
 const loadTime = async () => {
   const data = await fetchJSON("/time");
-  serverTimeEl.textContent = formatGameTime(data.unixSeconds);
+  serverTimeEl.textContent = formatGameTimeUTC(data.unixSeconds);
 };
 
 /* ----------------------------
-   Fetch & render: WEATHER
+   WEATHER (player-adjusted)
 ---------------------------- */
 
 const loadWeather = async () => {
   const data = await fetchJSON("/weather");
 
-  const adjustedTemp = data.temperature + TEMPERATURE_OFFSET_C;
-  wxTempEl.textContent = `${adjustedTemp.toFixed(1)} °C`;
-  wxTempEl.title = `Raw: ${data.temperature.toFixed(1)} °C`;
-  wxWindEl.textContent = `${data.windForce.toFixed(1)} m/s @ ${Math.round(
-    data.windDirection
-  )}°`;
+  const playerTemp = data.temperature + TEMP_PLAYER_OFFSET_C;
+
+  wxTempEl.innerHTML =
+    `${playerTemp.toFixed(1)} °C <span class="muted">(player)</span><br>` +
+    `<span class="muted mono">${data.temperature.toFixed(1)} °C (baseline)</span>`;
+
+  wxWindEl.textContent = `${data.windForce.toFixed(1)} m/s @ ${Math.round(data.windDirection)}°`;
   wxCloudsEl.textContent = `${(data.cloudiness * 100).toFixed(1)}%`;
   wxHumidityEl.textContent = `${(data.relativeHumidity * 100).toFixed(1)}%`;
-  wxPrecipEl.textContent = data.precipitation.toString();
+  wxPrecipEl.textContent = String(data.precipitation);
   wxPressureEl.textContent = `${data.pressure.toFixed(1)} hPa`;
-  wxFogEl.textContent = data.fog.toString();
+  wxFogEl.textContent = String(data.fog);
 
-  wxRawEl.textContent = JSON.stringify(data, null, 2);
+  wxRawEl.textContent = JSON.stringify(
+    { ...data, playerTemperature: playerTemp },
+    null,
+    2
+  );
 };
 
 /* ----------------------------
-   Fetch character details (cached)
+   CHARACTER + INVENTORY
 ---------------------------- */
 
 const loadCharacter = async (characterId) => {
-  if (characterCache[characterId]) {
-    return characterCache[characterId];
-  }
-
+  if (characterCache[characterId]) return characterCache[characterId];
   const data = await fetchJSON(`/characters/${characterId}`);
   characterCache[characterId] = data;
   charactersRawEl.textContent = JSON.stringify(characterCache, null, 2);
   return data;
 };
 
-/* ----------------------------
-   Inventory summary
----------------------------- */
-
 const summarizeInventory = (inventory) => {
-  if (!inventory || !inventory.items) return "—";
-
-  const itemCount = inventory.items.length;
-  const totalWeight = inventory.items.reduce(
-    (sum, i) => sum + (i.weight || 0),
-    0
-  );
-
-  return `${itemCount} items, ${totalWeight.toFixed(1)} kg`;
+  if (!inventory?.items) return "—";
+  const count = inventory.items.length;
+  const weight = inventory.items.reduce((s, i) => s + (i.weight || 0), 0);
+  return `${count} items, ${weight.toFixed(1)} kg`;
 };
 
 /* ----------------------------
-   Render players table
+   PLAYERS
 ---------------------------- */
 
 const renderPlayers = async (onlinePlayers) => {
   clearTable();
-
   const ids = Object.keys(onlinePlayers);
-  if (ids.length === 0) {
+
+  if (!ids.length) {
     playersTbodyEl.innerHTML =
       `<tr><td colspan="7" class="muted">No players online</td></tr>`;
     return;
@@ -211,13 +197,12 @@ const renderPlayers = async (onlinePlayers) => {
       <td class="mono">${p.characterId}</td>
       <td>${inventorySummary}</td>
     `;
-
     playersTbodyEl.appendChild(tr);
   }
 };
 
 /* ----------------------------
-   Main refresh cycle
+   MAIN REFRESH
 ---------------------------- */
 
 const refreshAll = async () => {
@@ -238,31 +223,25 @@ const refreshAll = async () => {
 };
 
 /* ----------------------------
-   Refresh controls
+   CONTROLS
 ---------------------------- */
 
 const setupRefresh = () => {
   refreshRateEl.onchange = () => {
-    if (refreshHandle) {
-      clearInterval(refreshHandle);
-      refreshHandle = null;
-    }
-
+    if (refreshHandle) clearInterval(refreshHandle);
     const interval = Number(refreshRateEl.value);
     if (interval > 0) {
       refreshHandle = setInterval(refreshAll, interval * 1000);
     }
   };
-
   refreshNowBtn.onclick = refreshAll;
 };
 
 /* ----------------------------
-   Init
+   INIT
 ---------------------------- */
 
 const init = () => {
-  wxRawEl.classList.add("hidden"); // ensure raw JSON starts hidden
   setupRefresh();
   refreshAll();
 
