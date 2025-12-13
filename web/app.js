@@ -5,6 +5,7 @@
 const API_BASE = "/api";
 
 // Temperature offset to account for elevation difference
+
 const TEMPERATURE_OFFSET_C = 4.0;
 
 /* ----------------------------
