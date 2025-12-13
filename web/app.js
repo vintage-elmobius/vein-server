@@ -72,8 +72,13 @@ const formatSeconds = (seconds) => {
 
 const formatGameTime = (unixSeconds) => {
   if (!unixSeconds) return "--";
+
   const d = new Date(unixSeconds * 1000);
-  return `${d.toLocaleDateString()} ${d.toLocaleTimeString()} (game time)`;
+
+  const date = d.toISOString().slice(0, 10);
+  const time = d.toISOString().slice(11, 19);
+
+  return `${date} ${time} UTC (game time)`;
 };
 
 const clearTable = () => {
