@@ -4,6 +4,9 @@
 
 const API_BASE = "/api";
 
+// Temperature offset to account for elevation difference
+const TEMPERATURE_OFFSET_C = 4.0;
+
 /* ----------------------------
    DOM references
 ---------------------------- */
@@ -72,12 +75,9 @@ const formatSeconds = (seconds) => {
 
 const formatGameTime = (unixSeconds) => {
   if (!unixSeconds) return "--";
-
   const d = new Date(unixSeconds * 1000);
-
   const date = d.toISOString().slice(0, 10);
   const time = d.toISOString().slice(11, 19);
-
   return `${date} ${time} UTC (game time)`;
 };
 
@@ -127,7 +127,9 @@ const loadTime = async () => {
 const loadWeather = async () => {
   const data = await fetchJSON("/weather");
 
-  wxTempEl.textContent = `${data.temperature.toFixed(1)} °C`;
+  const adjustedTemp = data.temperature + TEMPERATURE_OFFSET_C;
+  wxTempEl.textContent = `${adjustedTemp.toFixed(1)} °C`;
+  wxTempEl.title = `Raw: ${data.temperature.toFixed(1)} °C`;
   wxWindEl.textContent = `${data.windForce.toFixed(1)} m/s @ ${Math.round(
     data.windDirection
   )}°`;
@@ -259,6 +261,7 @@ const setupRefresh = () => {
 ---------------------------- */
 
 const init = () => {
+  wxRawEl.classList.add("hidden"); // ensure raw JSON starts hidden
   setupRefresh();
   refreshAll();
 
