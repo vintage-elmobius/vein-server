@@ -1,9 +1,9 @@
 /* =========================================================
-   Vein Server Dashboard — API v1
+   Vein Server Dashboard — API v1 (Corrected)
    ========================================================= */
 
 const API_BASE = "/api";
-const TEMP_PLAYER_OFFSET_C = -4; // players are colder than baseline
+const PLAYER_TEMP_OFFSET = -4; // player is colder than baseline
 
 /* ----------------------------
    DOM references
@@ -51,7 +51,7 @@ const setStatus = (text, variant = "idle") => {
 };
 
 const updateTimestamp = () => {
-  lastUpdatedEl.textContent = new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC";
+  lastUpdatedEl.textContent = new Date().toLocaleString();
 };
 
 const fetchJSON = async (path) => {
@@ -61,7 +61,7 @@ const fetchJSON = async (path) => {
 };
 
 const formatSeconds = (seconds) => {
-  if (seconds == null) return "--";
+  if (seconds === undefined || seconds === null) return "--";
   const s = Math.floor(seconds);
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
@@ -69,12 +69,22 @@ const formatSeconds = (seconds) => {
   return `${h}h ${m}m ${sec}s`;
 };
 
-const formatGameTimeUTC = (unixSeconds) => {
+/**
+ * IMPORTANT:
+ * Game time is NOT real UTC time.
+ * We display it as raw in-game time without timezone math.
+ */
+const formatGameTime = (unixSeconds) => {
   if (!unixSeconds) return "--";
-  return new Date(unixSeconds * 1000)
-    .toISOString()
-    .replace("T", " ")
-    .slice(0, 19) + " UTC";
+
+  const totalSeconds = Math.floor(unixSeconds);
+  const hours = Math.floor((totalSeconds / 3600) % 24);
+  const minutes = Math.floor((totalSeconds / 60) % 60);
+  const seconds = totalSeconds % 60;
+
+  return `${hours.toString().padStart(2, "0")}:` +
+         `${minutes.toString().padStart(2, "0")}:` +
+         `${seconds.toString().padStart(2, "0")} (game time)`;
 };
 
 const clearTable = () => {
@@ -88,7 +98,9 @@ const clearTable = () => {
 wxToggleEl.onclick = (e) => {
   e.preventDefault();
   wxRawEl.classList.toggle("hidden");
-  wxToggleEl.textContent = wxRawEl.classList.contains("hidden") ? "show" : "hide";
+  wxToggleEl.textContent = wxRawEl.classList.contains("hidden")
+    ? "show"
+    : "hide";
 };
 
 /* ----------------------------
@@ -99,10 +111,11 @@ const loadStatus = async () => {
   const data = await fetchJSON("/status");
 
   uptimeEl.textContent = formatSeconds(data.uptime);
-  playerCountEl.textContent = Object.keys(data.onlinePlayers || {}).length;
+  const players = data.onlinePlayers || {};
+  playerCountEl.textContent = Object.keys(players).length;
   statusRawEl.textContent = JSON.stringify(data, null, 2);
 
-  return data.onlinePlayers || {};
+  return players;
 };
 
 /* ----------------------------
@@ -111,64 +124,69 @@ const loadStatus = async () => {
 
 const loadTime = async () => {
   const data = await fetchJSON("/time");
-  serverTimeEl.textContent = formatGameTimeUTC(data.unixSeconds);
+  serverTimeEl.textContent = formatGameTime(data.unixSeconds);
 };
 
 /* ----------------------------
-   WEATHER (player-adjusted)
+   WEATHER
 ---------------------------- */
 
 const loadWeather = async () => {
   const data = await fetchJSON("/weather");
 
-  const playerTemp = data.temperature + TEMP_PLAYER_OFFSET_C;
+  const playerTemp = data.temperature + PLAYER_TEMP_OFFSET;
 
-  wxTempEl.innerHTML =
-    `${playerTemp.toFixed(1)} °C <span class="muted">(player)</span><br>` +
-    `<span class="muted mono">${data.temperature.toFixed(1)} °C (baseline)</span>`;
-
-  wxWindEl.textContent = `${data.windForce.toFixed(1)} m/s @ ${Math.round(data.windDirection)}°`;
+  wxTempEl.textContent = `${playerTemp.toFixed(1)} °C`;
+  wxWindEl.textContent = `${data.windForce.toFixed(1)} m/s @ ${Math.round(
+    data.windDirection
+  )}°`;
   wxCloudsEl.textContent = `${(data.cloudiness * 100).toFixed(1)}%`;
   wxHumidityEl.textContent = `${(data.relativeHumidity * 100).toFixed(1)}%`;
-  wxPrecipEl.textContent = String(data.precipitation);
+  wxPrecipEl.textContent = data.precipitation.toString();
   wxPressureEl.textContent = `${data.pressure.toFixed(1)} hPa`;
-  wxFogEl.textContent = String(data.fog);
+  wxFogEl.textContent = data.fog.toString();
 
-  wxRawEl.textContent = JSON.stringify(
-    { ...data, playerTemperature: playerTemp },
-    null,
-    2
-  );
+  wxRawEl.textContent = JSON.stringify(data, null, 2);
 };
 
 /* ----------------------------
-   CHARACTER + INVENTORY
+   Characters (cached)
 ---------------------------- */
 
 const loadCharacter = async (characterId) => {
   if (characterCache[characterId]) return characterCache[characterId];
+
   const data = await fetchJSON(`/characters/${characterId}`);
   characterCache[characterId] = data;
   charactersRawEl.textContent = JSON.stringify(characterCache, null, 2);
   return data;
 };
 
+/* ----------------------------
+   Inventory summary
+---------------------------- */
+
 const summarizeInventory = (inventory) => {
-  if (!inventory?.items) return "—";
-  const count = inventory.items.length;
-  const weight = inventory.items.reduce((s, i) => s + (i.weight || 0), 0);
-  return `${count} items, ${weight.toFixed(1)} kg`;
+  if (!inventory || !inventory.items) return "—";
+
+  const itemCount = inventory.items.length;
+  const totalWeight = inventory.items.reduce(
+    (sum, i) => sum + (i.weight || 0),
+    0
+  );
+
+  return `${itemCount} items, ${totalWeight.toFixed(1)} kg`;
 };
 
 /* ----------------------------
-   PLAYERS
+   Players table
 ---------------------------- */
 
 const renderPlayers = async (onlinePlayers) => {
   clearTable();
-  const ids = Object.keys(onlinePlayers);
 
-  if (!ids.length) {
+  const ids = Object.keys(onlinePlayers);
+  if (ids.length === 0) {
     playersTbodyEl.innerHTML =
       `<tr><td colspan="7" class="muted">No players online</td></tr>`;
     return;
@@ -176,6 +194,7 @@ const renderPlayers = async (onlinePlayers) => {
 
   for (const steamId of ids) {
     const p = onlinePlayers[steamId];
+
     let characterName = "Loading…";
     let inventorySummary = "—";
 
@@ -202,7 +221,7 @@ const renderPlayers = async (onlinePlayers) => {
 };
 
 /* ----------------------------
-   MAIN REFRESH
+   Main refresh
 ---------------------------- */
 
 const refreshAll = async () => {
@@ -217,13 +236,13 @@ const refreshAll = async () => {
     updateTimestamp();
     setStatus("Connected", "ok");
   } catch (err) {
-    setStatus("API error", "error");
     console.error(err);
+    setStatus("API error", "error");
   }
 };
 
 /* ----------------------------
-   CONTROLS
+   Refresh controls
 ---------------------------- */
 
 const setupRefresh = () => {
@@ -234,11 +253,12 @@ const setupRefresh = () => {
       refreshHandle = setInterval(refreshAll, interval * 1000);
     }
   };
+
   refreshNowBtn.onclick = refreshAll;
 };
 
 /* ----------------------------
-   INIT
+   Init
 ---------------------------- */
 
 const init = () => {
